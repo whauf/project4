@@ -47,17 +47,18 @@ def submit_survey():
     # 🔹 Pull user_agent from submission OR request headers
     user_agent = submission.user_agent or request.headers.get("User-Agent", "")
 
-    record = StoredSurveyRecord(
-        full_name=submission.full_name,
-        email=hashed_email,
-        age=hashed_age,
-        rating=submission.rating,
-        comments=submission.comments,
-        user_agent=user_agent,
-        submission_id=submission_id,
-        received_at=datetime.now(timezone.utc),
-        ip=request.headers.get("X-Forwarded-For", request.remote_addr or "")
-    )
+record = StoredSurveyRecord(
+    full_name=submission.name,  
+    email=hashed_email,
+    age=hashed_age,
+    rating=submission.rating,
+    comments=submission.comments,
+    user_agent=user_agent,
+    submission_id=submission_id,
+    received_at=datetime.now(timezone.utc),
+    ip=request.headers.get("X-Forwarded-For", request.remote_addr or "")
+)
+
 
     append_json_line(record.dict())
     return jsonify({"status": "ok"}), 201
