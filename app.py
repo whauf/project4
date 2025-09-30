@@ -4,12 +4,11 @@ from flask_cors import CORS
 from pydantic import ValidationError
 from models import SurveySubmission, StoredSurveyRecord
 from storage import append_json_line
-from datetime import datetime
+import hashlib
 
 def generate_submission_id(email: str) -> str:
     timestamp = datetime.now().strftime("%Y%m%d%H")
     return hash_value(email + timestamp)
-import hashlib
 
 def hash_value(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
@@ -38,33 +37,14 @@ def submit_survey():
     except ValidationError as ve:
         return jsonify({"error": "validation_error", "detail": ve.errors()}), 422
 
-    record = StoredSurveyRecord(
-        **submission.dict(),
-        received_at=datetime.now(timezone.utc),
-        ip=request.headers.get("X-Forwarded-For", request.remote_addr or "")
-    )
-    append_json_line(record.dict())
-    return jsonify({"status": "ok"}), 201
-
-if __name__ == "__main__":
-    app.run(port=5000, debug=True)
-
-@app.post("/v1/survey")
-def submit_survey():
-    payload = request.get_json(silent=True)
-    if payload is None:
-        return jsonify({"error": "invalid_json", "detail": "Body must be application/json"}), 400
-
-    try:
-        submission = SurveySubmission(**payload)
-    except ValidationError as ve:
-        return jsonify({"error": "validation_error", "detail": ve.errors()}), 422
-
+    # 🔹 Hash sensitive fields
     hashed_email = hash_value(submission.email)
     hashed_age = hash_value(str(submission.age))
 
+    # 🔹 Generate submission_id if not provided
     submission_id = submission.submission_id or generate_submission_id(submission.email)
 
+    # 🔹 Pull user_agent from submission OR request headers
     user_agent = submission.user_agent or request.headers.get("User-Agent", "")
 
     record = StoredSurveyRecord(
@@ -81,3 +61,6 @@ def submit_survey():
 
     append_json_line(record.dict())
     return jsonify({"status": "ok"}), 201
+
+if __name__ == "__main__":
+    app.run(port=5000, debug=True)
